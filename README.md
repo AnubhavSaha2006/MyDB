@@ -1,124 +1,155 @@
 
 ---
 
-#  MyDB — Lightweight In-Memory DBMS in Modern C++
 
-A minimal yet powerful educational database system implemented in C++. It demonstrates key concepts in storage management, tuple encoding, buffer management, and basic SQL-like query execution, using modern C++ techniques and STL components.
+# MyDB — Lightweight In-Memory DBMS in Modern C++
 
----
-
-##  Features Implemented
-
-*  **Disk Manager**: Abstracted I/O for page-level storage
-*  **Buffer Pool Manager**: Caches disk pages in memory
-*  **LRU Replacer**: Page replacement strategy
-*  **Page Abstraction**: Raw byte-buffer with metadata
-*  **Table Heap**: Slotted-page heap file for tuple storage
-*  **RID (Record ID)**: Logical location reference for tuples
-*  **B+ Tree Index**: Simple in-memory `std::map`-based index
-*  **Tuple Encoding**: Stores byte-level tuples (strings, ints)
-*  **SQL-like Queries**: `INSERT`, `SELECT` supported
-*  **Query Execution Engine**: Executes simple queries from CLI
+*MyDB* is a small, pedagogical database engine written entirely in C++.  
+It demonstrates fundamental database-system components—page layout, buffer management, tuple serialization, indexing, and a SQL-like front end—while applying modern C++17/20 facilities for safety and clarity.
 
 ---
 
-##  File Structure Overview
+## Contents
 
-```
+1. [Main Capabilities](#main-capabilities)  
+2. [Supported SQL-Like Statements](#supported-sql-like-statements)  
+3. [Project Structure](#project-structure)  
+4. [Example Session](#example-session)  
+5. [Building](#building)  
+6. [Modern C++ Techniques Employed](#modern-c-techniques-employed)  
+
+---
+
+## Main Capabilities
+
+| Layer | Implementation Highlights |
+|-------|--------------------------|
+| **Storage Engine** | 4 KB `Page` abstraction; `DiskManager` for page-level I/O |
+| **Buffer Pool** | `BufferPoolManager` with **LRU replacement** and pin/unpin protocol |
+| **Heap File** | `TableHeap` uses a classic **slotted-page** layout for variable-length tuples |
+| **Tuple & RID** | `Tuple` stores raw bytes; `RID` identifies a record by `(page_id, slot_id)` |
+| **Index** | Header-only, templated **B+ Tree** (custom nodes, split/merge, leaf chaining) |
+| **Schema** | Variable column list, currently `INT` and fixed-length `CHAR(n)` |
+| **Catalog** | Manages multiple tables, each with its own schema, heap, and index |
+| **SQL-like Layer** | Hand-written **parser** and **executor** supporting `CREATE`, `INSERT`, `SELECT`, `DELETE` |
+| **CLI** | Interactive REPL in `main.cpp` prints results or error messages immediately |
+
+---
+
+## Supported SQL-Like Statements
+
+```sql
+-- define a table (first column must be INT, becomes the primary key)
+CREATE TABLE t1 (roll INT, name CHAR(20), address CHAR(40));
+
+-- insert a row (INT literals are bare, CHAR literals are single-quoted)
+INSERT INTO t1 VALUES (113, 'alice', 'NYC');
+
+-- full scan
+SELECT * FROM t1;
+
+-- point lookup on primary key
+SELECT * FROM t1 WHERE roll = 113;
+
+-- logical delete (removes row from index and marks slot free)
+DELETE FROM t1 WHERE roll = 113;
+````
+
+> Only `INT` and fixed-length `CHAR(n)` are supported.
+> The first `INT` column is always used as the B+-tree key.
+
+---
+
+## Project Structure
+
+```repl
 src/
-├── main.cpp                     # Entry point: accepts and executes user queries
-├── execution/
-│   ├── query_executor.hpp/cpp  # Runs queries using table + index
+├── main.cpp                         # REPL entry point
+│
 ├── parser/
-│   ├── query_parser.hpp/cpp    # Parses strings like "INSERT 1 value"
-├── storage/
-│   ├── buffer_pool_manager.hpp/cpp
-│   ├── disk_manager.hpp/cpp
-│   ├── lru_replacer.hpp
-│   ├── page.hpp
-│   ├── table_heap.hpp/cpp      # Slotted-page tuple management
-│   ├── rid.hpp                 # Record ID abstraction
-│   ├── tuple.hpp               # Typed tuple storage
-│   ├── schema.hpp              # Column types (extendable)
-│   ├── bplus_tree.hpp/cpp      # std::map-backed B+ Tree index
+│   ├── query.hpp                    # AST structs (CreateTable, Insert, …)
+│   ├── query_parser.hpp/.cpp        # Regex-based SQL parser
+│
+├── execution/
+│   ├── query_executor.hpp/.cpp      # Executes AST on catalog / storage
+│
+└── storage/
+    ├── page.hpp                     # 4 KB page with header
+    ├── disk_manager.hpp/.cpp        # Reads/writes pages on disk
+    ├── lru_replacer.hpp             # LRU page replacer
+    ├── buffer_pool_manager.hpp/.cpp # Frame cache with pinning
+    ├── rid.hpp                      # Record identifier
+    ├── tuple.hpp                    # Raw-byte tuple
+    ├── schema.hpp                   # Column metadata + (de)serialisation
+    ├── table_heap.hpp/.cpp          # Slotted-page heap file
+    ├── bplus_tree.hpp               # Header-only custom B+ tree
+    └── catalog.hpp                  # Table metadata registry
+```
+
+
+---
+
+## Example Session
+
+```bash
+Mini-SQL> CREATE TABLE t1 (roll INT, name CHAR(20), address CHAR(40));
+Table created
+
+Mini-SQL> INSERT INTO t1 VALUES (123,'abc','abcd');
+Mini-SQL> INSERT INTO t1 VALUES (113,'abcDE','abcd');
+
+Mini-SQL> SELECT * FROM t1;
+123 abc abcd
+113 abcDE abcd
+
+Mini-SQL> DELETE FROM t1 WHERE roll = 123;
+Deleted
+
+Mini-SQL> SELECT * FROM t1;
+113 abcDE abcd
+
+#Multiple tables work independently:
+
+Mini-SQL> CREATE TABLE t2 (roll INT, name CHAR(20), value INT, loc CHAR(10));
+Mini-SQL> INSERT INTO t2 VALUES (555,'x',999,'zzz');
+Mini-SQL> SELECT * FROM t2;
+555 x 999 zzz
 ```
 
 ---
 
-##  Currently Supported Queries
-
-* `INSERT <key> <value>`
-  → Inserts a tuple (with key as B+Tree index)
-* `SELECT <key>`
-  → Retrieves the value corresponding to the key
-
-> ✔️ Output is printed directly to the console.
-
----
-
-##  Example Usage
-
-```sh
-$ ./mydb
-Enter queries (INSERT <key> <value> or SELECT <key>):
-INSERT 1 hello
-Inserted
-SELECT 1
-hello
-```
-
----
-
-##  Core Concepts Used
-
-###  Modern C++ Highlights
-
-* **Smart pointers** (internally encouraged for expansion)
-* **RAII-based unpinning** (manual but structured)
-* **Use of `std::optional`, `std::unordered_map`, `std::vector`**
-* **Proper const correctness** and encapsulation
-* **Custom memory layout for tuple storage using `std::byte`**
-* **Modular abstraction** between components (DiskManager vs. BufferManager vs. TableHeap)
-
----
-
-##  Design Philosophy
-
-| Component           | Description                                        |
-| ------------------- | -------------------------------------------------- |
-| `Page`              | Raw memory + metadata wrapper (4KB default)        |
-| `DiskManager`       | Abstracts file I/O at page granularity             |
-| `BufferPoolManager` | Caches pages, handles replacement + dirty tracking |
-| `TableHeap`         | Heap file using slotted-page layout                |
-| `RID`               | (Page ID, Slot ID) reference                       |
-| `Tuple`             | Encapsulates a value stored as raw bytes           |
-| `QueryExecutor`     | Ties parser, index, and heap together              |
-| `BPlusTree`         | Fast key lookup (via `std::map`)                   |
-| `QueryParser`       | Simple parser for SQL-like input                   |
-
----
-
-
-##  Tested Components
-
-* ✅ Tuple insertion & retrieval
-* ✅ Page unpinning and reuse
-* ✅ LRU replacement on full buffer pool
-* ✅ Simple SQL interface
-* ✅ B+Tree indexing + RID mapping
-
----
-
-## 🧑‍💻 How to Build
+## Building
 
 ```bash
 mkdir build && cd build
-cmake ..
-make
+cmake ..            # requires CMake 3.17+
+cmake --build .     # any C++17/20 compiler (GCC ≥ 8, Clang ≥ 7, MSVC ≥ 19.29)
 ./mydb
 ```
 
-> ⚠️ Requires C++17 or later.
+---
+
+## Modern C++ Techniques Employed
+
+| Feature / Library                                   | Where Used                                              |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| **`std::unique_ptr`, `std::shared_ptr`**            | Ownership of heap files, B+-tree nodes, catalog objects |
+| **`std::optional`**                                 | B+-tree search results, parser returns                  |
+| **`std::variant` + `std::visit`**                   | Type-safe AST dispatch in `QueryExecutor`               |
+| **`std::byte`**                                     | Low-level tuple serialization and page buffers          |
+| **`std::regex`**                                    | Lightweight SQL-like parsing                            |
+| **RAII**                                            | Buffer-page pin/unpin, automatic flushing               |
+| **Header-only Templates**                           | Generic B+-tree (`BPlusTree<ValueT>`)                   |
+| **Const-correctness & `noexcept` (where relevant)** | Safer API contracts                                     |
+
+---
+
+### Next Steps (road-map)
+
+* Support for `UPDATE` and `CHAR/VARCHAR` resizing
+* Recovery (write-ahead logging)
+* Multi-page heaps and index iterator scans
+* Query optimizer and expression evaluation
 
 ---
 
