@@ -1,0 +1,21 @@
+# Ignore Visual Studio files
+.vs/
+*.vcxproj*
+*.suo
+*.user
+*.userosscache
+*.sdf
+*.opensdf
+
+# CMake and build files
+build/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# Output files
+*.exe
+*.obj
+*.o
+*.log
