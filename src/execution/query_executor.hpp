@@ -1,18 +1,21 @@
 #pragma once
-#include "../storage/bplus_tree.hpp"
-#include "../storage/table_heap.hpp"
-#include "../parser/query_parser.hpp"
 #include <string>
 #include <optional>
+#include "../storage/catalog.hpp"          // ? root-level catalog
+#include "../parser/query.hpp"
 
 class QueryExecutor {
 public:
-    QueryExecutor(TableHeap* table, BPlusTree* index);
-
-    // Execute a parsed query and return result as string
-    std::optional<std::string> execute(const Query& query);
+    explicit QueryExecutor(Catalog* cat) : cat_(cat) {}
+    std::optional<std::string> execute(const Query& q);
 
 private:
-    TableHeap* table_;
-    BPlusTree* index_;
+    Catalog* cat_;
+
+    /* helpers */
+    std::string exec_create(const CreateTable&);
+    std::string exec_insert(const Insert&);
+    std::string exec_select_all(const SelectAll&);
+    std::string exec_select_where(const SelectWhere&);
+    std::string exec_delete_where(const DeleteWhere&);
 };

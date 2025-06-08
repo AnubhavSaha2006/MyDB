@@ -10,7 +10,7 @@ public:
     // Add a frame to the LRU list
     void insert(size_t frame_id) {
         // If already present, move to front
-        std::cout << "LRU Insert frame: " << frame_id << "\n";
+       // std::cout << "LRU Insert frame: " << frame_id << "\n";
 
         if (map_.count(frame_id)) {
             lst_.erase(map_[frame_id]);

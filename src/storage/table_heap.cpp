@@ -92,5 +92,16 @@ bool TableHeap::get_tuple(const RID& rid, Tuple& tuple) {
     bpm_->unpin_page(rid.page_id(), false);
     return true;
 }
+// table_heap.cpp
+bool TableHeap::delete_tuple(const RID& rid) {
+    Page* page = bpm_->fetch_page(rid.page_id());
+    if (!page) return false;
+    auto* data = page->data();
+    uint16_t* slot = reinterpret_cast<uint16_t*>(data + 4 + rid.slot_id() * 4);
+    slot[0] = slot[1] = 0;          // mark empty
+    bpm_->unpin_page(rid.page_id(), true);
+    return true;
+}
+
 
 
