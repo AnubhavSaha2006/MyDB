@@ -9,6 +9,15 @@ It demonstrates fundamental database-system components—page layout, buffer man
 
 ---
 
+## Demo
+
+
+https://github.com/user-attachments/assets/c2a82df5-b357-4e85-8a8c-29a9d7880fb7
+
+
+
+---
+
 ## Contents
 
 1. [Main Capabilities](#main-capabilities)  
